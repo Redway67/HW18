@@ -16,7 +16,6 @@ def get_history():
     cursor = conn.cursor()
     cursor.execute('SELECT * FROM requests')
     result = cursor.fetchall()
-    # TODO: сортировка по региону?
     for item in result:
         cursor.execute('SELECT Name FROM regions WHERE id =?', (str(item[2]),))
         region = cursor.fetchall()
