@@ -1,0 +1,45 @@
+{% set page = 'result' %}
+{% extends 'base.html' %}
+
+
+{% block content %}
+    <h3> Последний поиск </h3>
+    <h6> Регион   :</h6> <h> {{info.region}} </h>
+<br/>
+    <h6> Вакансия :</h6> <h> {{info.vacancy}}</h>
+<br/><br/>
+    <h5> Найдено  на {{info.data}}</h5>
+    <h6> {{info.found}}</h6>
+
+<br/> <br/>
+    {% if info.requirement %}
+    <ul>
+        <div class="container">
+            <table class="table table-hover">
+              <thead>
+                <tr>
+                  <th scope="col">#</th>
+                  <th scope="col">Навык</th>
+                  <th scope="col">Требуется</th>
+                  <th scope="col">Процент</th>
+                </tr>
+                </thead>
+              <tbody>
+                {% for item in info.requirement %}
+                <tr>
+                  <th scope="row">  </th>
+                  <td>{{item.name}}</td>
+                  <td>{{item.count}}</td>
+                  <td>{{item.percent}}</td>
+                </tr>
+                {% endfor %}
+              </tbody>
+            </table>
+        </div>
+    </ul>
+    {% else %}
+        Данных нет
+    {% endif %}
+
+
+{% endblock %}

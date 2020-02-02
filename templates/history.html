@@ -1,0 +1,18 @@
+{% set page = 'history' %}
+{% extends 'base.html' %}
+
+
+{% block content %}
+    <form method="post">
+      <h3> Выберите запрос </h3>
+     <div class="form-group">
+     <p><select size="10" name="request">
+        {% for item in req %}
+            <option>{{ item[1] }}</option>
+        {% endfor %}
+     </select></p>
+     <button type="submit" class="btn btn-primary">Поиск</button>
+     </div>
+    </form>
+       <h5> Выберите запрос или начните новый Поиск </h5>
+{% endblock %}
