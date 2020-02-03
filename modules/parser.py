@@ -59,7 +59,6 @@ def get_request(request):
     return info
 
 
-
 def parser(vacancy='Python developer', region='Москва'):
     req = []
     skills = {}
