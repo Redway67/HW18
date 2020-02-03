@@ -1,7 +1,7 @@
 import requests
-import json
 from datetime import datetime
 import sqlite3
+from modules.data_base import add_records
 
 DOMAIN = 'https://api.hh.ru/'
 URL_VACANCIES = f'{DOMAIN}vacancies'
@@ -58,36 +58,6 @@ def get_request(request):
     conn.close()
     return info
 
-
-def add_records(info):
-    conn = sqlite3.connect(FILE_DB, check_same_thread=False)
-    cursor = conn.cursor()
-
-    cursor.execute('INSERT OR IGNORE INTO regions (Name) VALUES (?)', (info['region'],))
-    cursor.execute('SELECT id FROM regions WHERE Name =?', (info['region'],))
-    id_region = cursor.fetchall()[0][0]
-
-    cursor.execute('INSERT OR IGNORE INTO vacancies (Name) VALUES (?)', (info['vacancy'],))
-    cursor.execute('SELECT id FROM vacancies WHERE Name =?', (info['vacancy'],))
-    id_vacancy = cursor.fetchall()[0][0]
-
-    query_insert_request = 'INSERT INTO requests (Data,idRegion,idVacancy,Found) VALUES (?,?,?,?)'
-    cursor.execute(query_insert_request, (info['data'], id_region, id_vacancy, info['found'],))
-    cursor.execute('SELECT last_insert_rowid()')
-    id_request = cursor.fetchall()[0][0]
-
-    query_insert = 'INSERT INTO request_skill (idRequest,idSkill,Count,Percent ) VALUES (?,?,?,?)'
-    for skill in info['requirement']:
-        # скилы
-        cursor.execute('INSERT OR IGNORE INTO skills (Name) VALUES (?)', (skill['name'],))
-        cursor.execute('SELECT id FROM skills WHERE Name =?', (skill['name'],))
-        id_skill = cursor.fetchall()[0][0]
-        # реквест-скилы
-        cursor.execute(query_insert, (id_request, id_skill, skill['count'], skill['percent'],))
-
-    conn.commit()
-    conn.close()
-    return
 
 
 def parser(vacancy='Python developer', region='Москва'):

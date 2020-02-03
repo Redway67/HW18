@@ -21,22 +21,21 @@ CREATE TABLE request_skill (idRequest REFERENCES requests (id), idSkill REFERENC
 
 from sqlalchemy import Column, Integer, String, REAL, create_engine, ForeignKey, Table
 from sqlalchemy.ext.declarative import declarative_base
+from sqlalchemy.orm import sessionmaker, relationship
 
-engine = create_engine('sqlite:///hhparser.db', echo=True)
+
 Base = declarative_base()
-
-request_skill = Table('request_skill', Base.metadata,
-                      Column('idRequest', Integer, ForeignKey('requests.id'), index=True),
-                      Column('idSkill', Integer, ForeignKey('skills.id')),
-                      Column('Count', Integer),
-                      Column('Percent', REAL)
-                      )
 
 
 class Regions(Base):
     __tablename__ = 'regions'
     id = Column(Integer, primary_key=True)
     Name = Column(String, unique=True)
+
+    # пока не будем хранить внутренний номер региона из hh.ru
+
+    def __init__(self, name):
+        self.Name = name
 
     def __str__(self):
         return self.Name
@@ -47,6 +46,9 @@ class Skills(Base):
     id = Column(Integer, primary_key=True)
     Name = Column(String, unique=True)
 
+    def __init__(self, name):
+        self.Name = name
+
     def __str__(self):
         return self.Name
 
@@ -56,6 +58,9 @@ class Vacancies(Base):
     id = Column(Integer, primary_key=True)
     Name = Column(String, unique=True)
 
+    def __init__(self, name):
+        self.Name = name
+
     def __str__(self):
         return self.Name
 
@@ -64,14 +69,67 @@ class Requests(Base):
     __tablename__ = 'requests'
     id = Column(Integer, primary_key=True)
     Data = Column(String)
-    idRegion = Column(Integer)
-    idVacancy = Column(Integer)
+    idRegion = Column(Integer, ForeignKey('regions.id'))
+    idVacancy = Column(Integer, ForeignKey('vacancies.id'))
     Found = Column(Integer)
 
-    # def __str__(self):
-    #   return self.Name
+    region = relationship('Regions', backref='requests')
+    vacancy = relationship('Vacancies', backref='requests')
+
+    def __init__(self, data, id_region, id_vacancy, found):
+        self.Data = data
+        self.idRegion = id_region
+        self.idVacancy = id_vacancy
+        self.Fond = found
+
+    def __str__(self):
+        return self.id
+
+
+class RequestSkill(Base):
+    __tablename__ = 'request_skill'
+    id = Column(Integer, primary_key=True)
+    idRequest = Column(Integer, ForeignKey('requests.id'), index=True)
+    idSkill = Column(Integer, ForeignKey('skills.id'))
+    Count = Column(Integer)
+    Percent = Column(REAL)
+
+    def __init__(self, id_request, id_skill, count, percent):
+        self.idRequest = id_request
+        self.idSkill = id_skill
+        self.Count = count
+        self.Percent = percent
+
+#https://stackoverflow.com/questions/2546207/does-sqlalchemy-have-an-equivalent-of-djangos-get-or-create
+
+def add_records(info):
+    engine = create_engine('sqlite:///modules\hhparser.db', echo=False)
+    Base.metadata.create_all(engine)
+    Session = sessionmaker(bind=engine)
+    session = Session()
+
+    session.add(Regions(info['region']))
+    id_region = session.query(Regions.id).filter(Regions.Name == info['region']).all()[0][0]
+    session.add(Vacancies(info['vacancy']))
+    id_vacancy = session.query(Vacancies.id).filter(Vacancies.Name == info['vacancy']).all()[0][0]
+    session.add(Requests(info['data'], id_region, id_vacancy, info['found']))
+    id_request = session.query(Requests.id).filter(Requests.Data == info['data'] and Requests.idRegion == id_region and
+                                                   Requests.idVacancy == id_vacancy and
+                                                   Requests.Found == info['found']).all()[0][0]
+
+    for skill in info['requirement']:
+        # скилы
+        session.add(Skills(skill['name']))
+        id_skill = session.query(Skills.id).filter(Skills.Name == skill['name']).all()[0][0]
+        # реквест-скилы
+        session.add(RequestSkill(id_request, id_skill, skill['count'], skill['percent']))
+
+    session.commit()
+    session.close()
+    return
 
 
 if __name__ == '__main__':
+    engine = create_engine('sqlite:///hhparser.db', echo=True)
     # Создание таблицы
     Base.metadata.create_all(engine)
