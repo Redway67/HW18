@@ -72,12 +72,11 @@ class Requests(Base):
     idVacancy = Column(Integer)
     Found = Column(Integer)
 
-
     def __init__(self, data, id_region, id_vacancy, found):
         self.Data = data
         self.idRegion = id_region
         self.idVacancy = id_vacancy
-        self.Fond = found
+        self.Found = found
 
     def __str__(self):
         return self.id
@@ -114,19 +113,18 @@ def add_records(info):
     id_region = get_or_create(session, Regions, info['region'])
     id_vacancy = get_or_create(session, Vacancies, info['vacancy'])
 
-    exist = session.query(Requests.id).filter(Requests.Data == info['data']
-                                              and Requests.idRegion == id_region
-                                              and Requests.idVacancy == id_vacancy
-                                              and Requests.Found == info['found']).first()
-    print(exist)
-    print(id_region, id_vacancy, info['found'])
+    exist = session.query(Requests.id).filter(Requests.Data == info['data'],
+                                              Requests.idRegion == id_region,
+                                              Requests.idVacancy == id_vacancy,
+                                              Requests.Found == info['found']).first()
     if not exist:
         session.add(Requests(info['data'], id_region, id_vacancy, info['found']))
-    id_request = session.query(Requests.id).filter(Requests.Data == info['data']
-                                                   and Requests.idRegion == id_region
-                                                   and Requests.idVacancy == id_vacancy
-                                                   and Requests.Found == info['found']).first()[0]
-    print(id_request)
+
+    id_request = session.query(Requests.id).filter(Requests.Data == info['data'],
+                                                   Requests.idRegion == id_region,
+                                                   Requests.idVacancy == id_vacancy,
+                                                   Requests.Found == info['found']).first()[0]
+
     for skill in info['requirement']:
         # скилы
         id_skill = get_or_create(session, Skills, skill['name'])
