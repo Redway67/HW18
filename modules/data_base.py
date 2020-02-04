@@ -21,15 +21,24 @@ CREATE TABLE request_skill (idRequest REFERENCES requests (id), idSkill REFERENC
 
 from sqlalchemy import Column, Integer, String, REAL, create_engine, ForeignKey, Table
 from sqlalchemy.ext.declarative import declarative_base
-from sqlalchemy.orm import sessionmaker, relationship
+from sqlalchemy.orm import sessionmaker, relationship, backref
 
+DB_ENGINE = 'sqlite:///modules\hhparser.db'
 Base = declarative_base()
+
+RequestSkill = Table('RequestSkill',
+                     Column('idRequest', Integer, ForeignKey('requests.id')),
+                     Column('idVacancy', Integer, ForeignKey('vacancies.id')),
+                     Column('Count', Integer),
+                     Column('Percent', REAL)
+                     )
 
 
 class Regions(Base):
     __tablename__ = 'regions'
     id = Column(Integer, primary_key=True)
     Name = Column(String, unique=True)
+    request = relationship('Requests', backref='region')
 
     # пока не будем хранить внутренний номер региона из hh.ru
 
@@ -56,6 +65,7 @@ class Vacancies(Base):
     __tablename__ = 'vacancies'
     id = Column(Integer, primary_key=True)
     Name = Column(String, unique=True)
+    request = relationship('Requests', backref='vacancy')
 
     def __init__(self, name):
         self.Name = name
@@ -68,9 +78,10 @@ class Requests(Base):
     __tablename__ = 'requests'
     id = Column(Integer, primary_key=True)
     Data = Column(String)
-    idRegion = Column(Integer)
-    idVacancy = Column(Integer)
+    idRegion = Column(Integer, ForeignKey('regions.id'))
+    idVacancy = Column(Integer, ForeignKey('vacancies.id'))
     Found = Column(Integer)
+    Requirement = relationship('Skills', secondary=RequestSkill, backref=backref('requirements', lazy='dynamic'))
 
     def __init__(self, data, id_region, id_vacancy, found):
         self.Data = data
@@ -82,19 +93,19 @@ class Requests(Base):
         return self.id
 
 
-class RequestSkill(Base):
-    __tablename__ = 'request_skill'
-    id = Column(Integer, primary_key=True)
-    idRequest = Column(Integer)
-    idSkill = Column(Integer)
-    Count = Column(Integer)
-    Percent = Column(REAL)
-
-    def __init__(self, id_request, id_skill, count, percent):
-        self.idRequest = id_request
-        self.idSkill = id_skill
-        self.Count = count
-        self.Percent = percent
+# class RequestSkill(Base):
+#     __tablename__ = 'request_skill'
+#     id = Column(Integer, primary_key=True)
+#     idRequest = Column(Integer)
+#     idSkill = Column(Integer)
+#     Count = Column(Integer)
+#     Percent = Column(REAL)
+#
+#     def __init__(self, id_request, id_skill, count, percent):
+#         self.idRequest = id_request
+#         self.idSkill = id_skill
+#         self.Count = count
+#         self.Percent = percent
 
 
 def get_or_create(session, model, info):
@@ -105,7 +116,7 @@ def get_or_create(session, model, info):
 
 
 def add_records(info):
-    engine = create_engine('sqlite:///modules\hhparser.db', echo=False)
+    engine = create_engine(DB_ENGINE, echo=False)
     Base.metadata.create_all(engine)
     Session = sessionmaker(bind=engine)
     session = Session()
@@ -134,6 +145,47 @@ def add_records(info):
     session.commit()
     session.close()
     return
+
+
+def get_history():
+    history_db = []
+    engine = create_engine(DB_ENGINE, echo=False)
+    Base.metadata.create_all(engine)
+    Session = sessionmaker(bind=engine)
+    session = Session()
+
+    queries = session.query(Requests).all()
+    for item in queries:
+        history_db.append(
+            f'Регион: {item.region.Name}, Вакансия: {item.vacancy.Name}, Найдено: {item.Found},'
+            f' Дата: {item.Data}, Запрос: {item.id}')
+    session.close()
+    return history_db
+
+
+def get_request(request):
+    # TODO: обработка пустого запроса
+    r = request.replace(':', ',').split(',')
+    id_request = r[9].split()[0]
+    region = r[1].split()[0]
+    vacancy = r[3].split()[0]
+    found = r[5].split()[0]
+    data = r[7].split()[0]
+
+    engine = create_engine(DB_ENGINE, echo=False)
+    Base.metadata.create_all(engine)
+    Session = sessionmaker(bind=engine)
+    session = Session()
+
+    skills = session.query(RequestSkill).filter(RequestSkill.idRequest == id_request).all()
+    req = []
+    for skill in skills:
+        print(skill.idSkill)
+        # req.append({'name': name, 'count': skill[2], 'percent': skill[3]})
+
+    info = {'region': region, 'vacancy': vacancy, 'found': found, 'data': data, 'requirement': req}
+    session.close()
+    return info
 
 
 if __name__ == '__main__':

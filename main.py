@@ -1,5 +1,6 @@
 from flask import Flask, render_template, request
-from modules.parser import parser, get_history, get_request
+from modules.parser import parser
+from modules.data_base import get_history, get_request
 
 Info = {}
 

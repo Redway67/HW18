@@ -1,62 +1,10 @@
 import requests
 from datetime import datetime
-import sqlite3
 from modules.data_base import add_records
 
 DOMAIN = 'https://api.hh.ru/'
 URL_VACANCIES = f'{DOMAIN}vacancies'
 URL_AREA = f'{DOMAIN}suggests/areas'
-
-FILE_DB = 'modules/hhparser.db'
-
-
-def get_history():
-    history_db = []
-    conn = sqlite3.connect(FILE_DB, check_same_thread=False)
-    cursor = conn.cursor()
-    cursor.execute('SELECT * FROM requests')
-    result = cursor.fetchall()
-    for item in result:
-        cursor.execute('SELECT Name FROM regions WHERE id =?', (str(item[2]),))
-        region = cursor.fetchall()
-        cursor.execute('SELECT Name FROM vacancies WHERE id =?', (str(item[3]),))
-        vacancy = cursor.fetchall()
-        history_db.append(
-            [item[0], f'Регион: {region[0][0]}, Вакансия: {vacancy[0][0]}, Найдено: {item[4]}, Дата: {item[1]}'])
-
-    conn.close()
-    return history_db
-
-
-def get_request(request):
-    # TODO: обработка пустого запроса
-    r = request.replace(':', ',').split(',')
-    region = r[1].split()[0]
-    vacancy = r[3].split()[0]
-    found = r[5].split()[0]
-    data = r[7].split()[0]
-
-    conn = sqlite3.connect(FILE_DB, check_same_thread=False)
-    cursor = conn.cursor()
-
-    cursor.execute('SELECT id FROM regions WHERE Name = ?', (region,))
-    id_region = cursor.fetchall()[0][0]
-    cursor.execute('SELECT id FROM vacancies WHERE Name =?', (vacancy,))
-    id_vacancy = cursor.fetchall()[0][0]
-    cursor.execute('SELECT id FROM requests WHERE idRegion =? AND idVacancy = ? AND Data = ?',
-                   (id_region, id_vacancy, data,))
-    id_request = cursor.fetchall()[0][0]
-    cursor.execute('SELECT * FROM request_skill WHERE idRequest =?', (id_request,))
-    skills = cursor.fetchall()
-    req = []
-    for skill in skills:
-        cursor.execute('SELECT Name FROM skills WHERE id =?', (str(skill[1]),))
-        name = cursor.fetchall()[0][0]
-        req.append({'name': name, 'count': skill[2], 'percent': skill[3]})
-
-    info = {'region': region, 'vacancy': vacancy, 'found': found, 'data': data, 'requirement': req}
-    conn.close()
-    return info
 
 
 def parser(vacancy='Python developer', region='Москва'):
