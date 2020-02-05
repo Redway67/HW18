@@ -24,14 +24,6 @@ from sqlalchemy.orm import sessionmaker, relationship, backref
 DB_ENGINE = 'sqlite:///modules\hhparser.db'
 Base = declarative_base()
 
-request_skills = Table('request_skills',
-                       Base.metadata,
-                       Column('idRequest', Integer, ForeignKey('requests.id')),
-                       Column('idSkill', Integer, ForeignKey('skills.id')),
-                       Column('Count', Integer),
-                       Column('Percent', REAL)
-                       )
-
 
 class Regions(Base):
     __tablename__ = 'regions'
@@ -52,7 +44,7 @@ class Skills(Base):
     __tablename__ = 'skills'
     id = Column(Integer, primary_key=True)
     Name = Column(String, unique=True)
-    requests = relationship('Requests', secondary=request_skills, back_populates='skills', lazy='dynamic')
+    requirement = relationship('RequestSkills', backref='skill')
 
     def __init__(self, name):
         self.Name = name
@@ -81,7 +73,7 @@ class Requests(Base):
     idRegion = Column(Integer, ForeignKey('regions.id'))
     idVacancy = Column(Integer, ForeignKey('vacancies.id'))
     Found = Column(Integer)
-    skills = relationship('Skills', secondary=request_skills, back_populates='requests', lazy='dynamic')
+    requirement = relationship('RequestSkills', backref='request')
 
     def __init__(self, data, id_region, id_vacancy, found):
         self.Data = data
@@ -89,8 +81,20 @@ class Requests(Base):
         self.idVacancy = id_vacancy
         self.Found = found
 
-    def __str__(self):
-        return self.id
+
+class RequestSkills(Base):
+    __tablename__ = 'request_skills'
+    id = Column(Integer, primary_key=True)
+    idRequest = Column(Integer, ForeignKey('requests.id'))
+    idSkill = Column(Integer, ForeignKey('skills.id'))
+    Count = Column(Integer)
+    Percent = Column(REAL)
+
+    def __init__(self, id_request, id_skill, count, percent):
+        self.idRequest = id_request
+        self.idSkill = id_skill
+        self.Count = count
+        self.Percent = percent
 
 
 def get_or_create(session, model, info):
@@ -124,8 +128,7 @@ def add_records(info):
     for skill in info['requirement']:
         # # скилы
         id_skill = get_or_create(session, Skills, skill['name'])[0]
-        statement = request_skills.insert().values(idRequest=id_request, idSkill=id_skill)
-        session.execute(statement)
+        session.add(RequestSkills(id_request, id_skill, skill['count'], skill['percent']))
 
     session.commit()
     session.close()
@@ -151,7 +154,7 @@ def get_history():
 def get_request(request):
     # TODO: обработка пустого запроса
     r = request.replace(':', ',').split(',')
-    id_request = r[9].split()[0]
+    id_request = int(r[9].split()[0])
     region = r[1].split()[0]
     vacancy = r[3].split()[0]
     found = r[5].split()[0]
@@ -162,11 +165,10 @@ def get_request(request):
     Session = sessionmaker(bind=engine)
     session = Session()
 
-    skills = session.query(RequestSkill).filter(RequestSkill.idRequest == id_request).all()
+    query = session.query(RequestSkills).filter(RequestSkills.idRequest == id_request).all()
     req = []
-    for skill in skills:
-        print(skill.idSkill)
-        # req.append({'name': name, 'count': skill[2], 'percent': skill[3]})
+    for item in query:
+        req.append({'name': item.skill.Name, 'count': item.Count, 'percent': item.Percent})
 
     info = {'region': region, 'vacancy': vacancy, 'found': found, 'data': data, 'requirement': req}
     session.close()
