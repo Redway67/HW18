@@ -11,8 +11,6 @@ CREATE TABLE vacancies (id INTEGER PRIMARY KEY AUTOINCREMENT, Name VARCHAR (32) 
 -- Таблица: requests
 CREATE TABLE requests (id INTEGER PRIMARY KEY AUTOINCREMENT, Data VARCHAR (9), idRegion REFERENCES regions (id),
                        idVacancy REFERENCES vacancies (id), Found INTEGER);
--- Индекс: request
-CREATE INDEX request ON request_skill (idRequest);
 
 -- Таблица: request_skill
 CREATE TABLE request_skill (idRequest REFERENCES requests (id), idSkill REFERENCES skills (id),
@@ -26,12 +24,13 @@ from sqlalchemy.orm import sessionmaker, relationship, backref
 DB_ENGINE = 'sqlite:///modules\hhparser.db'
 Base = declarative_base()
 
-RequestSkill = Table('RequestSkill',
-                     Column('idRequest', Integer, ForeignKey('requests.id')),
-                     Column('idVacancy', Integer, ForeignKey('vacancies.id')),
-                     Column('Count', Integer),
-                     Column('Percent', REAL)
-                     )
+request_skills = Table('request_skills',
+                       Base.metadata,
+                       Column('idRequest', Integer, ForeignKey('requests.id')),
+                       Column('idSkill', Integer, ForeignKey('skills.id')),
+                       Column('Count', Integer),
+                       Column('Percent', REAL)
+                       )
 
 
 class Regions(Base):
@@ -53,6 +52,7 @@ class Skills(Base):
     __tablename__ = 'skills'
     id = Column(Integer, primary_key=True)
     Name = Column(String, unique=True)
+    requests = relationship('Requests', secondary=request_skills, back_populates='skills', lazy='dynamic')
 
     def __init__(self, name):
         self.Name = name
@@ -81,7 +81,7 @@ class Requests(Base):
     idRegion = Column(Integer, ForeignKey('regions.id'))
     idVacancy = Column(Integer, ForeignKey('vacancies.id'))
     Found = Column(Integer)
-    Requirement = relationship('Skills', secondary=RequestSkill, backref=backref('requirements', lazy='dynamic'))
+    skills = relationship('Skills', secondary=request_skills, back_populates='requests', lazy='dynamic')
 
     def __init__(self, data, id_region, id_vacancy, found):
         self.Data = data
@@ -93,26 +93,11 @@ class Requests(Base):
         return self.id
 
 
-# class RequestSkill(Base):
-#     __tablename__ = 'request_skill'
-#     id = Column(Integer, primary_key=True)
-#     idRequest = Column(Integer)
-#     idSkill = Column(Integer)
-#     Count = Column(Integer)
-#     Percent = Column(REAL)
-#
-#     def __init__(self, id_request, id_skill, count, percent):
-#         self.idRequest = id_request
-#         self.idSkill = id_skill
-#         self.Count = count
-#         self.Percent = percent
-
-
 def get_or_create(session, model, info):
     exist = session.query(model.id).filter(model.Name == info).first()
     if not exist:
         session.add(model(info))
-    return session.query(model.id).filter(model.Name == info).first()[0]
+    return session.query(model.id).filter(model.Name == info).first()
 
 
 def add_records(info):
@@ -121,8 +106,8 @@ def add_records(info):
     Session = sessionmaker(bind=engine)
     session = Session()
 
-    id_region = get_or_create(session, Regions, info['region'])
-    id_vacancy = get_or_create(session, Vacancies, info['vacancy'])
+    id_region = get_or_create(session, Regions, info['region'])[0]
+    id_vacancy = get_or_create(session, Vacancies, info['vacancy'])[0]
 
     exist = session.query(Requests.id).filter(Requests.Data == info['data'],
                                               Requests.idRegion == id_region,
@@ -137,10 +122,10 @@ def add_records(info):
                                                    Requests.Found == info['found']).first()[0]
 
     for skill in info['requirement']:
-        # скилы
-        id_skill = get_or_create(session, Skills, skill['name'])
-        # реквест-скилы
-        session.add(RequestSkill(id_request, id_skill, skill['count'], skill['percent']))
+        # # скилы
+        id_skill = get_or_create(session, Skills, skill['name'])[0]
+        statement = request_skills.insert().values(idRequest=id_request, idSkill=id_skill)
+        session.execute(statement)
 
     session.commit()
     session.close()
