@@ -152,7 +152,6 @@ def get_history():
 
 
 def get_request(request):
-    # TODO: обработка пустого запроса
     r = request.replace(':', ',').split(',')
     id_request = int(r[9].split()[0])
     region = r[1].split()[0]
